@@ -187,6 +187,7 @@ public class EnemyAI : MonoBehaviour
             }
             else
             {
+                PlayIdleAnimation();
                 Shoot();
             }
         }
@@ -200,7 +201,6 @@ public class EnemyAI : MonoBehaviour
     void Shoot()
     {
         gun.Shoot();
-        Debug.Log("Shoot player");
 
         //if (gun.currentAmmoInMag <= 0)
         //{
@@ -231,7 +231,6 @@ public class EnemyAI : MonoBehaviour
     bool TurnToFaceTarget(Vector3 target)
     {
         Vector3 tgtDir = target - transform.position;
-        Debug.DrawRay(transform.position, tgtDir, Color.cyan, 10f);
 
         Quaternion tgtRot = Quaternion.LookRotation(tgtDir, Vector3.up);
 
@@ -248,7 +247,6 @@ public class EnemyAI : MonoBehaviour
 
             transform.rotation = curRot;
 
-            Debug.DrawRay(transform.position, curDir, Color.yellow, 1f);
             return false;
         }
     }
