@@ -2,62 +2,97 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+//Anything with "Note:" is just my commentary, you can delete them afte reading
 public class EnemyAI : MonoBehaviour
 {
+    //Note: here we use a simple enum state machine.  Ideally this enum has its own seperate script, even if it's just one line, but in this case it doesn't matter
+    public enum EnemyStates { Patrol, ChaseAndAttack, Dead }
+
     public static event System.Action OnGuardHasSpottedPlayer;
 
-    public float speed;
-    public float wait = 2f;
-    public float turnSpeed = 90;
-    public float timeToSpotPlayer = .8f;
-    public float stoppingDistance = 1f;
-    public float retreatDistance = 0.5f;
+    //Note: always have your fields (i.e. v ariables and properties and stuff) in this order: delegates, variables, properties
+    //And in each of those categories, have them in this order: static, public/exposed serializeField, protected, private
 
-    public bool oneHanded;
-    public bool twoHanded;
+    [Header("Parameters")] //Note: these headers are nice because they double as a comment 
+    [SerializeField] float speed;
+    [SerializeField] float turnDuration = 2f;
+    [SerializeField] float turnSpeed = 90;
+    [SerializeField] float timeToSpotPlayer = .8f;
+    [SerializeField] float shootDistMax = 1f;
+    [SerializeField] float shootDistMin = 0.5f;
 
-    public Transform handHold;
+    [SerializeField] bool oneHanded;
+    [SerializeField] bool twoHanded;
 
-    private bool reloading;
-    public Gun currentGun;
+    [SerializeField] Gun gun;
 
-    public Light spotLight;
-    public float viewDistance;
-    public LayerMask viewMask;
+    [SerializeField] Light spotLight;
+    [SerializeField] float spotlightDistance;
+    [SerializeField] LayerMask obstacleLayer;
 
-    float viewAngle;
-    float playerVisableTimer;
+    [Header("References")]
+    [SerializeField] Transform pathHolder;
+    [SerializeField] Transform handHold;
+    [SerializeField] Animator animator;
 
-    public Transform pathHolder;
+    //References
     Transform player;
-    Color ogiginalSpotlightColour;
-    private Vector3[] waypoints;
 
-    public Animator animator;
+    //Status (note: statuses are variables that constantly change during a gameplay session)
+    bool reloading;
+    float playerVisableTimer;
+    float distanceToPlayer;
+    int waypointIndex;
 
-    private void Start()
+    //Cache (note: cache are things that gets calculated once at the start of the game and don't get changed again)
+    float spotlightViewAngle;
+    Color originalSpotlightColour;
+    Vector3[] waypoints;
+
+    public EnemyStates State { get; private set; } = EnemyStates.Patrol;
+
+    #region MonoBehavior
+    void Awake()
     {
-        player = GameObject.FindGameObjectWithTag ("Player").transform;
-        viewAngle = spotLight.spotAngle;
-        ogiginalSpotlightColour = spotLight.color;
+        //Note: Awake / Start usually have 3 categories or sections of code: reference (ie. referencing objects, components, and classes), 
+        //initialize (i.e. giving variables their starting values), and cache (i.e. caching some calculation so they don't have to be recalculated for the rest of the session
+        //Reference
+        player = GameObject.FindGameObjectWithTag("Player").transform;
 
-        //creating an array of all the points in the path
+        //Cache
+        spotlightViewAngle = spotLight.spotAngle;
+        originalSpotlightColour = spotLight.color;
+        spotlightDistance = spotLight.range;
+
+        //Initialize waypoints
         waypoints = new Vector3[pathHolder.childCount];
-        for (int i =0; i < waypoints.Length; i++)
+        for (int i = 0; i < waypoints.Length; i++)
         {
             waypoints[i] = pathHolder.GetChild(i).position;
             waypoints[i] = new Vector3(waypoints[i].x, transform.position.y, waypoints[i].z);
         }
 
-        FollowThePath();
-        animator.SetBool("isWalking", true);
-        ////for testing
-        //StartCoroutine(Shoot());
+        //Startup behaviors
+        PlayWalkAnimation();
+
+        transform.position = waypoints[0];
+        transform.LookAt(currentWaypoint);
     }
+
 
     private void Update()
     {
-        if(CanSeePlayer())
+        //Note: this is a kind of "per-frame" cache. 
+        distanceToPlayer = Vector3.Distance(transform.position, player.position);
+
+        StateUpdate();
+        SpotlightUpdate();
+    }
+    #endregion
+
+    void SpotlightUpdate()
+    {
+        if (State == EnemyStates.ChaseAndAttack)
         {
             playerVisableTimer += Time.deltaTime;
         }
@@ -66,10 +101,11 @@ public class EnemyAI : MonoBehaviour
             playerVisableTimer -= Time.deltaTime;
         }
         playerVisableTimer = Mathf.Clamp(playerVisableTimer, 0, timeToSpotPlayer);
-        //lerp betqween the original and red if seen for more the a second
-        spotLight.color = Color.Lerp(ogiginalSpotlightColour, Color.red, playerVisableTimer / timeToSpotPlayer);
 
-        if(playerVisableTimer >= timeToSpotPlayer)
+        //lerp betqween the original and red if seen for more the a second
+        spotLight.color = Color.Lerp(originalSpotlightColour, Color.red, playerVisableTimer / timeToSpotPlayer);
+
+        if (playerVisableTimer >= timeToSpotPlayer)
         {
             //guard has spotted player so call event
             if (OnGuardHasSpottedPlayer != null)
@@ -79,126 +115,153 @@ public class EnemyAI : MonoBehaviour
         }
     }
 
-    public void Reloading()
-    {        
-        if (currentGun.Reload())
-        {
-             reloading = true;
-        }
-        
-        if (reloading)
-        {
-            currentGun.FinishReload();
-            reloading = false;
-        }
-    }    
 
-    bool CanSeePlayer ()
+    #region State machine
+    void StateUpdate()
     {
-        if(Vector3.Distance(transform.position, player.position) < viewAngle)
+        switch (State)
         {
-
-            Vector3 directionToPlayer = (player.position - transform.position).normalized;
-            float angleBetweenGuardAndPlayer = Vector3.Angle(transform.forward, directionToPlayer);
-            if(angleBetweenGuardAndPlayer < viewAngle / 2f)
-            {
-                //check line of sight
-                if(!Physics.Linecast(transform.position, player.position, viewMask))
-                {
-                    //starts shooting as soon as light turns red
-                    //StartCoroutine(Shoot());
-                    if (Vector3.Distance(transform.position, player.position) > stoppingDistance)
-                    {
-                        transform.position = Vector3.MoveTowards(transform.position, player.position, speed * Time.deltaTime);
-                    }
-                    else if (Vector3.Distance(transform.position, player.position) < stoppingDistance && Vector3.Distance(transform.position, player.position) > retreatDistance)
-                    {
-                        transform.position = this.transform.position;
-                    }
-                    else if (Vector3.Distance(transform.position, player.position) > retreatDistance)
-                    {
-                        transform.position = Vector3.MoveTowards(transform.position, player.position, -speed * Time.deltaTime);
-                    }
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    //corotine to set next waypoint and how long they will stay at that waypoint
-    IEnumerator FollowPath(Vector3[] waypoints)
-    {
-        transform.position = waypoints[0];
-
-        int targetWaypointIndex = 1;
-        Vector3 targetWaypoint = waypoints[targetWaypointIndex];
-        transform.LookAt(targetWaypoint);
-
-        while(true)
-        {
-            //move towrads next waypoint at a set speed
-            transform.position = Vector3.MoveTowards(transform.position, targetWaypoint, speed * Time.deltaTime);
-            if(transform.position == targetWaypoint)
-            {
-                //modulas operator or % means if previous value = post value go back to 0
-                targetWaypointIndex = (targetWaypointIndex + 1) % waypoints.Length;
-                targetWaypoint = waypoints[targetWaypointIndex];
-                //how long the AI will stay at waypoint
-                animator.SetBool("isWalking", false);
-                animator.SetBool("isIdle", true);
-                yield return new WaitForSeconds(wait);
-                animator.SetBool("isIdle", false);
-                animator.SetBool("isWalking", true);
-                yield return StartCoroutine(TurnToFace(targetWaypoint));
-            }
-            yield return null;
+            case EnemyStates.Patrol:
+                PatrolUpdate();
+                break;
+            case EnemyStates.ChaseAndAttack:
+                ChaseUpdate();
+                break;
+            case EnemyStates.Dead:
+            default:
+                //Do nothing 
+                break;
         }
     }
+    #endregion
 
-    //coroutine to set facing the next waypoint
-    IEnumerator TurnToFace(Vector3 lookTarget)
+    #region Patrol
+    void PatrolUpdate()
     {
-        Vector3 directionToLookTarget = (lookTarget - transform.position).normalized;
-        float targetAngle = 90 - Mathf.Atan2(directionToLookTarget.z, directionToLookTarget.x) * Mathf.Rad2Deg;
-
-        //small angle used as sometimes there can be minor variations in calculation in eular angles and it might break
-        //aditional mathf.abd was added as the charcter would not rotate anticlockwise as it would be under 0.05, as a - number
-        while (Mathf.Abs(Mathf.DeltaAngle(transform.eulerAngles.y, targetAngle)) > 0.05f)
+        if (IsPlayerInDetectionRange && HasLineOfSightToPlayer)
         {
-            float angle = Mathf.MoveTowardsAngle(transform.eulerAngles.y, targetAngle, turnSpeed * Time.deltaTime);
-            transform.eulerAngles = Vector3.up * angle;
-            yield return null;
-        }
-    }
-
-    IEnumerator Shoot()
-    {
-        if (currentGun.GetComponent<Gun>().currentAmmoInMag >= 0)
-        {
-            Reloading();
-        }
-        currentGun.GetComponent<Gun>().Shoot();
-        yield return new WaitForSeconds(1f);
-        //StartCoroutine(Shoot());
-    }
-
-    public void FollowThePath()
-    {
-        if (CanSeePlayer() == true)
-        {
-            animator.SetBool("isIdle", false);
-            animator.SetBool("isWalking", true);
-            StopAllCoroutines();
+            //Exit patrol state and chase
+            State = EnemyStates.ChaseAndAttack;
         }
         else
         {
-            animator.SetBool("isIdle", false);
-            animator.SetBool("isWalking", true);
-            StartCoroutine(FollowPath(waypoints));
+            Patrol();
         }
     }
+
+    void Patrol()
+    {
+        if (ArrivedAtWaypoint)
+            TurnTowardsNextWaypoint();
+        else
+            MoveToNextWaypoint();
+    }
+
+    void TurnTowardsNextWaypoint()
+    {
+        PlayIdleAnimation();
+        if (TurnToFaceTarget(nextWaypoint))
+        {
+            IncrementWaypointIndex();
+        }
+    }
+
+
+    void MoveToNextWaypoint()
+    {
+        PlayWalkAnimation();
+        transform.position = Vector3.MoveTowards(transform.position, currentWaypoint, speed * Time.deltaTime);
+    }
+    #endregion
+
+    #region Chase and attack
+    void ChaseUpdate()
+    {
+        if (IsRoughlyFacingPlayer())
+        {
+            TurnToFaceTarget(player.position);
+            if (distanceToPlayer > shootDistMax)
+            {
+                PlayWalkAnimation();
+                transform.position = Vector3.MoveTowards(transform.position, player.position, speed * Time.deltaTime);
+            }
+            else
+            {
+                Shoot();
+            }
+        }
+        else
+        {
+            PlayIdleAnimation();
+            TurnToFaceTarget(player.position);
+        }
+    }
+
+    void Shoot()
+    {
+        gun.Shoot();
+        Debug.Log("Shoot player");
+
+        //if (gun.currentAmmoInMag <= 0)
+        //{
+        //    Reloading();
+        //}
+        //else
+        //{
+        //    gun.Shoot();
+        //}
+    }
+
+    public void Reloading()
+    {
+        if (gun.Reload())
+        {
+            reloading = true;
+        }
+
+        if (reloading)
+        {
+            gun.FinishReload();
+            reloading = false;
+        }
+    }
+    #endregion
+
+    #region Rotation
+    bool TurnToFaceTarget(Vector3 target)
+    {
+        Vector3 tgtDir = target - transform.position;
+        Debug.DrawRay(transform.position, tgtDir, Color.cyan, 10f);
+
+        Quaternion tgtRot = Quaternion.LookRotation(tgtDir, Vector3.up);
+
+        //If rotation completed, then snap towards the target rotation, otherwise smooth rotate towards it
+        if (Vector3.Angle(transform.forward, tgtDir) < 5f)
+        {
+            transform.rotation = tgtRot;
+            return true;
+        }
+        else
+        {
+            Vector3 curDir = Vector3.RotateTowards(transform.forward, tgtDir, turnSpeed * Time.deltaTime, 0.0f).normalized;
+            Quaternion curRot = Quaternion.LookRotation(curDir, Vector3.up);
+
+            transform.rotation = curRot;
+
+            Debug.DrawRay(transform.position, curDir, Color.yellow, 1f);
+            return false;
+        }
+    }
+    #endregion
+
+    //private void OnGUI()
+    //{
+    //    GUI.Label(new Rect(20, 20, 200, 20), "State: " + State);
+    //    GUI.Label(new Rect(20, 40, 200, 20), "ArrivedAtWaypoint: " + ArrivedAtWaypoint);
+    //    GUI.Label(new Rect(20, 60, 200, 20), "WaypointIndex: " + waypointIndex);
+    //    GUI.Label(new Rect(20, 80, 200, 20), "nextWaypoint: " + nextWaypoint);
+    //    GUI.Label(new Rect(20, 100, 200, 20), "waypoints.Length: " + waypoints.Length);
+    //}
 
     private void OnDrawGizmos()
     {
@@ -218,6 +281,90 @@ public class EnemyAI : MonoBehaviour
 
         //visualise the spotlight
         Gizmos.color = Color.red;
-        Gizmos.DrawRay(transform.position, transform.forward * viewDistance);
+        Gizmos.DrawRay(transform.position, transform.forward * spotlightDistance);
     }
+
+    #region Minor methods
+    //These kind of properties and methods produce "self documenting code", which is a good practice as they replaces comments and make the code more readable.
+    //For such kind of properties, you can put them at the bottom of the script or at the top along with other properties. 
+    //Personally, I have all of the utility methods/properties and these types of self documentation methods/properties all the bottom of the script so that 
+    //I don't have to look at them ever again unless something goes wrong.
+    Vector3 directionToPlayer => player.position - transform.position;
+    bool IsPlayerInDetectionRange => distanceToPlayer < spotlightDistance;
+    float DistToWaypoint => Vector3.Distance(transform.position, currentWaypoint);
+    Vector3 currentWaypoint => waypoints[waypointIndex];
+    Vector3 nextWaypoint => waypoints[(waypointIndex + 1 < waypoints.Length) ? waypointIndex + 1 : 0];
+    bool ArrivedAtWaypoint => transform.position == currentWaypoint;
+
+    void PlayWalkAnimation()
+    {
+        animator.SetBool("isIdle", false);
+        animator.SetBool("isWalking", true);
+    }
+
+    void PlayIdleAnimation()
+    {
+        animator.SetBool("isWalking", false);
+        animator.SetBool("isIdle", true);
+    }
+
+    void IncrementWaypointIndex()
+    {
+        //modulas operator or % means if previous value = post value go back to 0
+        waypointIndex = (waypointIndex + 1) % waypoints.Length;
+    }
+
+    bool IsRoughlyFacingPlayer()
+    {
+        float angleToPlayer = Vector3.Angle(transform.forward, directionToPlayer);
+        return (angleToPlayer < spotlightViewAngle / 2f);
+    }
+
+    bool IsFacingTarget(Vector3 target)
+    {
+        float angleToTarget = Vector3.Angle(transform.forward, target);
+        return angleToTarget < 5f;
+    }
+
+    bool HasLineOfSightToPlayer => !Physics.Linecast(transform.position, player.position, obstacleLayer);
+
+    #endregion
 }
+
+/*
+     IEnumerator TurnToFaceTarget(Vector3 target)
+    {
+        Vector3 lookDir = (target - transform.position).normalized;
+        float targetAngle = 90 - Mathf.Atan2(lookDir.z, lookDir.x) * Mathf.Rad2Deg;
+
+        //small angle used as sometimes there can be minor variations in calculation in eular angles and it might break
+        //aditional mathf.abd was added as the charcter would not rotate anticlockwise as it would be under 0.05, as a - number
+        while (Mathf.Abs(Mathf.DeltaAngle(transform.eulerAngles.y, targetAngle)) > 0.05f)
+        {
+            float angle = Mathf.MoveTowardsAngle(transform.eulerAngles.y, targetAngle, turnSpeed * Time.deltaTime);
+            transform.eulerAngles = Vector3.up * angle;
+            yield return null;
+        }
+    }
+ */
+
+/*
+     void RunAwayFromPlayer()
+    {
+        PlayWalkAnimation();
+        Vector3 opposite = transform.position;
+        opposite.x *= -1;
+        opposite.z *= -1;
+
+        if (IsFacingTarget(opposite))
+        {
+            PlayIdleAnimation();
+            TurnToFaceTarget(opposite);
+        }
+        else
+        {
+            PlayWalkAnimation();
+            transform.position = Vector3.MoveTowards(transform.position, opposite, speed * Time.deltaTime);
+        }
+    }
+ */

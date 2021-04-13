@@ -377,7 +377,7 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 603961661818197855}
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 21.2, y: 0, z: 27.98}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children:
@@ -963,21 +963,21 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   speed: 3
-  wait: 2
+  turnDuration: 2
   turnSpeed: 90
   timeToSpotPlayer: 0.8
   stoppingDistance: 4
   retreatDistance: 2
   oneHanded: 0
   twoHanded: 0
-  handHold: {fileID: 4569642306483324178}
   currentGun: {fileID: 602115834372406802}
   spotLight: {fileID: 1643934863358137987}
-  viewDistance: 3.5
+  spotlightDistance: 0
   viewMask:
     serializedVersion: 2
     m_Bits: 64
   pathHolder: {fileID: 8633749854728611573}
+  handHold: {fileID: 4569642306483324178}
   animator: {fileID: 4569642304885179922}
 --- !u!114 &6953935707023639024
 MonoBehaviour:
