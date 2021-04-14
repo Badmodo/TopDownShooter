@@ -183,7 +183,7 @@ public class EnemyAI : MonoBehaviour
             return;
         }
 
-        if (IsRoughlyFacingPlayer())
+            if (IsRoughlyFacingPlayer())
         {
             TurnToFaceTarget(player.position);
             if (distanceToPlayer > shootDistMax)
