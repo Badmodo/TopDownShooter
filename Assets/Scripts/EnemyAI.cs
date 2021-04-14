@@ -207,15 +207,6 @@ public class EnemyAI : MonoBehaviour
     void Shoot()
     {
         gun.Shoot();
-
-        //if (gun.currentAmmoInMag <= 0)
-        //{
-        //    Reloading();
-        //}
-        //else
-        //{
-        //    gun.Shoot();
-        //}
     }
 
     public void Reloading()
