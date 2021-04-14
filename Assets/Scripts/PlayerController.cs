@@ -15,6 +15,7 @@ public class PlayerController : MonoBehaviour
     public bool twoHanded;
 
     public Transform handHold;
+    public GameCamera shake;
 
     private float acceleration = 5f;
     private Vector3 currentVelocityModifier;    
@@ -30,7 +31,6 @@ public class PlayerController : MonoBehaviour
 
     public Animator animator;
 
-    //
     public Transform groundCheck;
 
     public LayerMask groundMask;
@@ -41,8 +41,6 @@ public class PlayerController : MonoBehaviour
     public static bool isGrounded = true;
 
     Vector3 velocity;
-
-    //
 
     int gunCheckID;
 
@@ -69,6 +67,8 @@ public class PlayerController : MonoBehaviour
             if (Input.GetButtonDown("Shoot"))
             {
                 currentGun.Shoot();
+                ////camera jumping to original position
+                //StartCoroutine(shake.Shake(0.15f, 0.4f));
             }
             else if (Input.GetButton("Shoot"))
             {

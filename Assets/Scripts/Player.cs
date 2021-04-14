@@ -1,18 +1,29 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class Player : Character
 {
     private int level;
     private float currentLevelExp;
     private float experienceToLevel;
+    public float maxHealth = 10f;
 
     private GameGUI gUI;
+    public Image healthBar;
+    public GameObject deadScreen;
 
     private void Start()
     {
         LevelUp();
+
+        health = maxHealth;
+    }
+
+    private void Update()
+    {
+        healthBar.fillAmount = health / maxHealth;
     }
 
     private void Awake()
@@ -37,7 +48,17 @@ public class Player : Character
 
     public override void Die()
     {
-        base.Die();
+        ////test
+        //Debug.Log("You Died");
+
+        StartCoroutine(Dead());
+    }
+
+    IEnumerator Dead()
+    {
+        deadScreen.SetActive(true);
+        Time.timeScale = 0;
+        yield return null;
     }
 
     private void LevelUp()

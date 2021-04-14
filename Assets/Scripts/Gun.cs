@@ -15,11 +15,13 @@ public class Gun : MonoBehaviour
     public int totalAmmo = 40;
     public int ammoMag = 10;
 
+    public GameObject muzzleFlashGO;
     public Transform spawn;
     public Transform shellEjectionPort;
     public Rigidbody shell;
     public LayerMask collisionMask;
     public AudioSource GunFire;
+    //public ParticleSystem muzzleFlash;
 
     [HideInInspector]
     public GameGUI gUI;
@@ -79,6 +81,8 @@ public class Gun : MonoBehaviour
             ////test ammo going down
             //Debug.Log(currentAmmoInMag + "      " + totalAmmo);
 
+            //StartCoroutine(MuzzleFlash());
+            //muzzleFlash.Play();
             GunFire.Play();
 
             if(tracer)
@@ -94,8 +98,20 @@ public class Gun : MonoBehaviour
         }
     }
 
+    IEnumerator MuzzleFlash()
+    {
+        if (currentAmmoInMag != 0)
+        {
+            muzzleFlashGO.SetActive(true);
+            yield return new WaitForSeconds(0.1f);
+            muzzleFlashGO.SetActive(false);
+        }
+    }
+
     IEnumerator RenderTracer(Vector3 hitPoint)
     {
+        StartCoroutine(MuzzleFlash());
+
         tracer.enabled = true;
         tracer.SetPosition(0, spawn.position);
         tracer.SetPosition(1, spawn.position + hitPoint);
@@ -107,15 +123,17 @@ public class Gun : MonoBehaviour
     {
         if(gunType == GunType.Auto)
         {
+            StartCoroutine(MuzzleFlash());
+
             Shoot();
         }
     }
 
-    private bool CanShoot()
+    public bool CanShoot()
     {
         bool canShoot = true;
 
-        if(Time.time < nextPossibleShootTime)
+        if (Time.time < nextPossibleShootTime)
         {
             canShoot = false;
         }
