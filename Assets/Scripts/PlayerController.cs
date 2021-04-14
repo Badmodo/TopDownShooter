@@ -1,6 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
 
 [RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour
@@ -11,11 +13,22 @@ public class PlayerController : MonoBehaviour
     public float gravity = -8f;
     public float jumpPower = 3f;
 
+    public float timeRemaining = 10;
+    public bool timerIsRunning = false;
+    public TMP_Text timeText;
+
     public bool oneHanded;
     public bool twoHanded;
 
     public Transform handHold;
     public GameCamera shake;
+    public GameObject light;
+    public GameObject torchTimer;
+
+    public AudioSource warning;
+    public AudioSource torchStart;
+    public AudioSource jump;
+    public AudioSource step;
 
     private float acceleration = 5f;
     private Vector3 currentVelocityModifier;    
@@ -134,8 +147,9 @@ public class PlayerController : MonoBehaviour
         }
         if (isGrounded == false)
         {
+            //jump.Play();
             animator.SetBool("isIdle", false);
-            animator.SetBool("isJumping", true);
+            animator.SetBool("isJumping", true);            
         }
         else if (isGrounded == true)
         {
@@ -148,6 +162,48 @@ public class PlayerController : MonoBehaviour
         //    oneHanded = false;
         //    twoHanded = true;
         //}
+
+        if (Input.GetKeyDown(KeyCode.Q))
+        {
+            StartCoroutine(PlayerLight());
+        }
+
+        if (timerIsRunning)
+        {
+            if (timeRemaining > 0)
+            {
+                timeRemaining -= Time.deltaTime;
+                DisplayTime(timeRemaining);
+            }
+            else
+            {
+                Debug.Log("Time has run out!");
+                timeRemaining = 0;
+                timerIsRunning = false;
+            }
+        }
+    }
+
+    IEnumerator PlayerLight()
+    {
+        torchStart.Play();
+        torchTimer.SetActive(true);
+        light.SetActive(true);
+        timerIsRunning = true;
+        yield return new WaitForSeconds(10f);
+        warning.Play();
+        torchTimer.SetActive(false);
+        light.SetActive(false);
+        timeRemaining = 10;
+    }
+
+    void DisplayTime(float timeToDisplay)
+    {
+        timeToDisplay += 1;
+
+        float seconds = Mathf.FloorToInt(timeToDisplay % 60);
+
+        timeText.text = string.Format("{0:00}", seconds);
     }
 
     //player follows mouse
@@ -174,8 +230,9 @@ public class PlayerController : MonoBehaviour
             //animation
             if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.S))
             {
+                //step.Play();
                 animator.SetBool("isIdle", false);
-                animator.SetBool("isWalking", true);
+                animator.SetBool("isWalking", true);                
             }
             else
             {

@@ -14,7 +14,6 @@ public class GameGUI : MonoBehaviour
     public void SetAmmoInfo(int totalAmmo, int ammoInMag)
     {
         ammoText.text = "Ammo - " + ammoInMag + "/" + totalAmmo;
-
     }
 
     public void SetPlayerExperience(float percentToLevel, int playerLevel)
@@ -23,8 +22,8 @@ public class GameGUI : MonoBehaviour
         expBar.fillAmount = percentToLevel;
     }
 
-    public void SetPlayerHealth(float currentHealth, float health)
-    {
-        healthBar.fillAmount = health;
-    }
+    //public void SetPlayerHealth(float currentHealth, float health)
+    //{
+    //    healthBar.fillAmount = health;
+    //}
 }

@@ -17,7 +17,6 @@ public class Player : Character
     private void Start()
     {
         LevelUp();
-
         health = maxHealth;
     }
 
@@ -42,7 +41,7 @@ public class Player : Character
         }
 
         gUI.SetPlayerExperience(currentLevelExp / experienceToLevel, level);
-        gUI.SetPlayerHealth(health -= currentHealth, health);
+        //gUI.SetPlayerHealth(health -= currentHealth, health);
         Debug.Log("Exp: " + currentLevelExp + "Level:" + level);
     }
 
