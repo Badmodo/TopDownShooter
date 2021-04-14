@@ -177,7 +177,13 @@ public class EnemyAI : MonoBehaviour
     #region Chase and attack
     void ChaseUpdate()
     {
-        if (IsRoughlyFacingPlayer())
+        if (!IsPlayerInDetectionRange || !HasLineOfSightToPlayer)
+        {
+            State = EnemyStates.Patrol;
+            return;
+        }
+
+            if (IsRoughlyFacingPlayer())
         {
             TurnToFaceTarget(player.position);
             if (distanceToPlayer > shootDistMax)
