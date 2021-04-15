@@ -21,7 +21,7 @@ public class Gun : MonoBehaviour
     public Rigidbody shell;
     public LayerMask collisionMask;
     public AudioSource GunFire;
-    //public ParticleSystem muzzleFlash;
+    public AudioSource hitTarget;
 
     [HideInInspector]
     public GameGUI gUI;
@@ -65,6 +65,7 @@ public class Gun : MonoBehaviour
 
                 if(hit.collider.GetComponent<Character>())
                 {
+                    hitTarget.Play();
                     hit.collider.GetComponent<Character>().TakeDamage(damage);
                 }
             }
@@ -81,8 +82,6 @@ public class Gun : MonoBehaviour
             ////test ammo going down
             //Debug.Log(currentAmmoInMag + "      " + totalAmmo);
 
-            //StartCoroutine(MuzzleFlash());
-            //muzzleFlash.Play();
             GunFire.Play();
 
             if(tracer)

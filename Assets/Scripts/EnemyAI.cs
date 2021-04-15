@@ -29,6 +29,7 @@ public class EnemyAI : MonoBehaviour
     [SerializeField] Light spotLight;
     [SerializeField] float spotlightDistance;
     [SerializeField] LayerMask obstacleLayer;
+    [SerializeField] AudioSource playerSeen;
 
     [Header("References")]
     [SerializeField] Transform pathHolder;
@@ -140,11 +141,14 @@ public class EnemyAI : MonoBehaviour
     {
         if (IsPlayerInDetectionRange && HasLineOfSightToPlayer)
         {
+            playerSeen.Play();
+
             //Exit patrol state and chase
             State = EnemyStates.ChaseAndAttack;
         }
         else
         {
+            playerSeen.Stop();
             Patrol();
         }
     }
@@ -185,6 +189,7 @@ public class EnemyAI : MonoBehaviour
 
         if (IsRoughlyFacingPlayer())
         {
+
             TurnToFaceTarget(player.position);
             if (distanceToPlayer > shootDistMax)
             {
