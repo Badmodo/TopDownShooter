@@ -34,6 +34,7 @@ public class ObjectMove : MonoBehaviour
             GetComponent<Rigidbody>().MovePosition(position);
             //transform.LookAt(target[current].position);
             transform.rotation = lookAtSlowly(transform, target[current].position, 2);
+            transform.position = position;
         }
         else
         {
