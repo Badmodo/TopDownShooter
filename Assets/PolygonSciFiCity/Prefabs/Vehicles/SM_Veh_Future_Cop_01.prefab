@@ -347,7 +347,8 @@ MonoBehaviour:
   target:
   - {fileID: 1569051911980989796}
   - {fileID: 1569051913701058315}
-  speed: 2
+  moveSpeed: 2
+  rotationSpeed: 2
 --- !u!1 &1569051911688306140
 GameObject:
   m_ObjectHideFlags: 0
